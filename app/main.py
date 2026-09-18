@@ -4,9 +4,10 @@ from typing import Any, Dict
 from fastapi import FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import HTMLResponse, JSONResponse
 
 from app.config import settings
+from app.dashboard import get_dashboard_html
 from app.models.response import HealthResponse, OptimizationResponse
 from app.models.request import OptimizationRequest
 from app.utils.logging import logger
@@ -48,6 +49,18 @@ async def global_exception_handler(request: Request, exc: Exception) -> JSONResp
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={"detail": "Internal server error occurred during optimization processing"},
     )
+
+
+@app.get(
+    "/",
+    response_class=HTMLResponse,
+    status_code=status.HTTP_200_OK,
+    summary="Interactive Energy Optimization Dashboard",
+    description="Serves the web dashboard for scenario testing, health monitoring, and documentation links.",
+)
+async def dashboard() -> str:
+    """Serve the interactive web test bench and system dashboard."""
+    return get_dashboard_html()
 
 
 @app.get(
