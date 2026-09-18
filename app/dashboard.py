@@ -164,6 +164,15 @@ def get_dashboard_html() -> str:
       transform: translateY(-1px);
     }
 
+    .btn-secondary {
+      background: #374151;
+      color: #f9fafb;
+    }
+
+    .btn-secondary:hover {
+      background: #4b5563;
+    }
+
     main {
       max-width: 1400px;
       margin: 0 auto;
@@ -197,6 +206,8 @@ def get_dashboard_html() -> str:
       margin-bottom: 1rem;
       padding-bottom: 0.75rem;
       border-bottom: 1px solid var(--border-color);
+      flex-wrap: wrap;
+      gap: 0.75rem;
     }
 
     .card-title {
@@ -234,6 +245,20 @@ def get_dashboard_html() -> str:
       font-weight: 700;
       margin-top: 0.25rem;
       color: var(--text-primary);
+    }
+
+    .notification-banner {
+      background: rgba(59, 130, 246, 0.15);
+      border: 1px solid rgba(59, 130, 246, 0.4);
+      color: #93c5fd;
+      padding: 0.75rem 1rem;
+      border-radius: 8px;
+      font-size: 0.85rem;
+      margin-bottom: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
     }
 
     label {
@@ -392,7 +417,7 @@ def get_dashboard_html() -> str:
       <div class="nav-links">
         <div class="status-badge">
           <div class="status-pulse"></div>
-          <span>API Online (:8000)</span>
+          <span>API Online</span>
         </div>
         <a href="/docs" target="_blank" class="btn btn-outline">📖 Swagger UI</a>
         <a href="/redoc" target="_blank" class="btn btn-outline">📋 ReDoc</a>
@@ -421,26 +446,35 @@ def get_dashboard_html() -> str:
       </div>
     </div>
 
+    <!-- Notification Banner -->
+    <div id="file-info-banner" class="notification-banner" style="display: none;">
+      <span id="file-info-text"></span>
+      <button class="btn btn-outline" style="padding: 0.2rem 0.5rem; font-size: 0.75rem;" onclick="document.getElementById('file-info-banner').style.display='none'">✕</button>
+    </div>
+
     <div class="grid-2">
       <!-- Input Panel -->
       <div class="card">
         <div class="card-header">
           <div class="card-title">🧪 Scenario Test Bench</div>
-          <button id="run-btn" class="btn btn-primary" onclick="runOptimization()">⚡ Run Optimization</button>
+          <div style="display: flex; gap: 0.5rem; flex-wrap: wrap;">
+            <!-- Hidden file input -->
+            <input type="file" id="json-file-input" accept=".json" style="display: none;" onchange="handleFileSelected(event)">
+            <button class="btn btn-outline" onclick="document.getElementById('json-file-input').click()">📁 Upload JSON File</button>
+            <button id="run-btn" class="btn btn-primary" onclick="runOptimization()">⚡ Run Optimization</button>
+          </div>
         </div>
 
         <div style="margin-bottom: 1rem;">
-          <label for="sample-select">Load Preset Scenario:</label>
-          <select id="sample-select" onchange="loadPreset()">
-            <option value="sample_1">Sample 01: Standard Campus Dispatch</option>
-            <option value="sample_2">Sample 02: Solar Reduction &amp; Feeder Cap</option>
-            <option value="sample_3">Sample 03: Battery Reserve &amp; Window Maintenance</option>
+          <label for="sample-select">Select Scenario to Run:</label>
+          <select id="sample-select" onchange="onScenarioSelectChanged()">
+            <option value="">Loading scenarios...</option>
           </select>
         </div>
 
         <div>
-          <label for="payload-input">JSON Payload (Editable):</label>
-          <textarea id="payload-input"></textarea>
+          <label for="payload-input">Scenario JSON Payload (Auto-Unwrapped &amp; Editable):</label>
+          <textarea id="payload-input" placeholder="Paste or upload scenario JSON..."></textarea>
         </div>
       </div>
 
@@ -515,150 +549,132 @@ def get_dashboard_html() -> str:
   </main>
 
   <script>
-    const presets = {
-      sample_1: {
-        "scenario_id": "SAMPLE-01",
-        "operator_notes": [
-          "Expect heavy rainfall between 12:00 and 15:00 reducing solar to 30%",
-          "Keep at least 60 kWh in reserve between 18:00 and 22:00 for the evening cultural program",
-          "Normal operations resume afterwards."
-        ],
-        "hours": [
-          {"hour": 0, "demand_kwh": 60.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 1, "demand_kwh": 55.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 2, "demand_kwh": 50.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 3, "demand_kwh": 45.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 4, "demand_kwh": 50.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 5, "demand_kwh": 60.0, "solar_kwh": 5.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 6, "demand_kwh": 80.0, "solar_kwh": 25.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 7, "demand_kwh": 110.0, "solar_kwh": 50.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 8, "demand_kwh": 140.0, "solar_kwh": 80.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 9, "demand_kwh": 160.0, "solar_kwh": 110.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 10, "demand_kwh": 175.0, "solar_kwh": 130.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 11, "demand_kwh": 180.0, "solar_kwh": 140.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 12, "demand_kwh": 175.0, "solar_kwh": 145.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 13, "demand_kwh": 170.0, "solar_kwh": 135.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 14, "demand_kwh": 165.0, "solar_kwh": 120.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 15, "demand_kwh": 150.0, "solar_kwh": 90.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 16, "demand_kwh": 140.0, "solar_kwh": 60.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 17, "demand_kwh": 155.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 12.0},
-          {"hour": 18, "demand_kwh": 180.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 19, "demand_kwh": 190.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 20, "demand_kwh": 185.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 21, "demand_kwh": 170.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 12.0},
-          {"hour": 22, "demand_kwh": 130.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 23, "demand_kwh": 90.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0}
-        ],
-        "battery": {
-          "capacity_kwh": 200.0,
-          "initial_energy_kwh": 40.0,
-          "minimum_energy_kwh": 20.0,
-          "max_charge_kwh_per_hour": 50.0,
-          "max_discharge_kwh_per_hour": 50.0
-        }
-      },
-      sample_2: {
-        "scenario_id": "SAMPLE-02",
-        "operator_notes": [
-          "Inverter maintenance from 13:00 to 15:00: no battery discharge allowed.",
-          "Cap grid import at 100 kWh from 17:00 to 20:00 to avoid transformer overload."
-        ],
-        "hours": [
-          {"hour": 0, "demand_kwh": 50.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 1, "demand_kwh": 50.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 2, "demand_kwh": 45.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 3, "demand_kwh": 45.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 4, "demand_kwh": 50.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 5, "demand_kwh": 60.0, "solar_kwh": 10.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 6, "demand_kwh": 80.0, "solar_kwh": 30.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 7, "demand_kwh": 100.0, "solar_kwh": 60.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 8, "demand_kwh": 130.0, "solar_kwh": 90.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 9, "demand_kwh": 150.0, "solar_kwh": 120.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 10, "demand_kwh": 160.0, "solar_kwh": 140.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 11, "demand_kwh": 170.0, "solar_kwh": 150.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 12, "demand_kwh": 165.0, "solar_kwh": 150.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 13, "demand_kwh": 160.0, "solar_kwh": 140.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 14, "demand_kwh": 150.0, "solar_kwh": 120.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 15, "demand_kwh": 140.0, "solar_kwh": 80.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 16, "demand_kwh": 130.0, "solar_kwh": 50.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 17, "demand_kwh": 145.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 12.0},
-          {"hour": 18, "demand_kwh": 160.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 19, "demand_kwh": 170.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 20, "demand_kwh": 160.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 12.0},
-          {"hour": 21, "demand_kwh": 140.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 22, "demand_kwh": 110.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 23, "demand_kwh": 70.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0}
-        ],
-        "battery": {
-          "capacity_kwh": 250.0,
-          "initial_energy_kwh": 50.0,
-          "minimum_energy_kwh": 25.0,
-          "max_charge_kwh_per_hour": 60.0,
-          "max_discharge_kwh_per_hour": 60.0
-        }
-      },
-      sample_3: {
-        "scenario_id": "SAMPLE-03",
-        "operator_notes": [
-          "Solar panels cleaning from 10:00 to 12:00: solar output down by 50%.",
-          "Prohibit battery charging between 18:00 and 22:00 peak hours."
-        ],
-        "hours": [
-          {"hour": 0, "demand_kwh": 40.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 1, "demand_kwh": 40.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 2, "demand_kwh": 40.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 3, "demand_kwh": 40.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 4, "demand_kwh": 45.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 5, "demand_kwh": 50.0, "solar_kwh": 5.0, "tariff_bdt_per_kwh": 6.0},
-          {"hour": 6, "demand_kwh": 70.0, "solar_kwh": 20.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 7, "demand_kwh": 90.0, "solar_kwh": 50.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 8, "demand_kwh": 120.0, "solar_kwh": 80.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 9, "demand_kwh": 140.0, "solar_kwh": 100.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 10, "demand_kwh": 150.0, "solar_kwh": 120.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 11, "demand_kwh": 160.0, "solar_kwh": 130.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 12, "demand_kwh": 155.0, "solar_kwh": 130.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 13, "demand_kwh": 150.0, "solar_kwh": 120.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 14, "demand_kwh": 140.0, "solar_kwh": 100.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 15, "demand_kwh": 130.0, "solar_kwh": 70.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 16, "demand_kwh": 120.0, "solar_kwh": 40.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 17, "demand_kwh": 135.0, "solar_kwh": 15.0, "tariff_bdt_per_kwh": 12.0},
-          {"hour": 18, "demand_kwh": 150.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 19, "demand_kwh": 160.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 14.0},
-          {"hour": 20, "demand_kwh": 150.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 12.0},
-          {"hour": 21, "demand_kwh": 130.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 10.0},
-          {"hour": 22, "demand_kwh": 100.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 8.0},
-          {"hour": 23, "demand_kwh": 60.0, "solar_kwh": 0.0, "tariff_bdt_per_kwh": 6.0}
-        ],
-        "battery": {
-          "capacity_kwh": 200.0,
-          "initial_energy_kwh": 40.0,
-          "minimum_energy_kwh": 20.0,
-          "max_charge_kwh_per_hour": 50.0,
-          "max_discharge_kwh_per_hour": 50.0
-        }
-      }
-    };
+    // Global store of active scenarios
+    let loadedCases = [];
 
-    function loadPreset() {
+    // Helper: extract canonical OptimizationRequest payload from any container format
+    function normalizeScenarioPayload(obj) {
+      if (!obj || typeof obj !== 'object') return obj;
+      // If it's a Case Pack with `cases` array
+      if (Array.isArray(obj.cases) && obj.cases.length > 0) {
+        const first = obj.cases[0];
+        return first.input || first;
+      }
+      // If it has `input` key (single case object)
+      if (obj.input && typeof obj.input === 'object') {
+        return obj.input;
+      }
+      // Direct scenario object
+      return obj;
+    }
+
+    // Populate the dropdown with an array of case objects
+    function populateDropdown(cases) {
       const select = document.getElementById('sample-select');
-      const val = select.value;
-      if (presets[val]) {
-        document.getElementById('payload-input').value = JSON.stringify(presets[val], null, 2);
+      select.innerHTML = '';
+      loadedCases = cases;
+
+      cases.forEach((c, idx) => {
+        const opt = document.createElement('option');
+        opt.value = idx;
+        const sId = (c.input && c.input.scenario_id) || c.scenario_id || `Case ${idx+1}`;
+        const lbl = c.label ? ` - ${c.label}` : '';
+        opt.textContent = `${sId}${lbl}`;
+        select.appendChild(opt);
+      });
+
+      if (cases.length > 0) {
+        select.value = 0;
+        selectScenario(0);
       }
     }
 
+    function selectScenario(index) {
+      if (!loadedCases || !loadedCases[index]) return;
+      const c = loadedCases[index];
+      const payload = normalizeScenarioPayload(c);
+      document.getElementById('payload-input').value = JSON.stringify(payload, null, 2);
+    }
+
+    function onScenarioSelectChanged() {
+      const idx = document.getElementById('sample-select').value;
+      if (idx !== "") {
+        selectScenario(parseInt(idx, 10));
+      }
+    }
+
+    // Handle File Upload (Sample case pack, individual cases, or raw scenario json)
+    function handleFileSelected(event) {
+      const file = event.target.files[0];
+      if (!file) return;
+
+      const reader = new FileReader();
+      reader.onload = function(e) {
+        try {
+          const parsed = JSON.parse(e.target.result);
+          const banner = document.getElementById('file-info-banner');
+          const bannerText = document.getElementById('file-info-text');
+
+          // Case 1: Case pack file (e.g. BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json)
+          if (parsed && Array.isArray(parsed.cases)) {
+            populateDropdown(parsed.cases);
+            bannerText.innerHTML = `✨ <strong>${file.name}</strong> loaded successfully! Detected <strong>${parsed.cases.length} scenarios</strong>. Select a scenario or run optimization.`;
+            banner.style.display = 'flex';
+          }
+          // Case 2: Array of cases or scenarios
+          else if (Array.isArray(parsed)) {
+            populateDropdown(parsed);
+            bannerText.innerHTML = `✨ <strong>${file.name}</strong> loaded! Detected <strong>${parsed.length} scenarios</strong>.`;
+            banner.style.display = 'flex';
+          }
+          // Case 3: Single wrapped case with 'input'
+          else if (parsed.input && typeof parsed.input === 'object') {
+            const single = [parsed];
+            populateDropdown(single);
+            bannerText.innerHTML = `✨ <strong>${file.name}</strong>: Loaded scenario <strong>${parsed.input.scenario_id || 'Unknown'}</strong>.`;
+            banner.style.display = 'flex';
+          }
+          // Case 4: Single raw scenario object
+          else if (parsed.scenario_id) {
+            const single = [{ input: parsed, label: parsed.scenario_id }];
+            populateDropdown(single);
+            bannerText.innerHTML = `✨ <strong>${file.name}</strong>: Loaded scenario <strong>${parsed.scenario_id}</strong>.`;
+            banner.style.display = 'flex';
+          }
+          else {
+            alert('File does not match expected scenario format.');
+          }
+        } catch (err) {
+          alert('Error parsing JSON file: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    }
+
+    // Run Optimization
     async function runOptimization() {
       const runBtn = document.getElementById('run-btn');
       const loading = document.getElementById('loading-indicator');
       const respBadge = document.getElementById('response-status');
       
-      let payload;
-      try {
-        payload = JSON.parse(document.getElementById('payload-input').value);
-      } catch (err) {
-        alert('Invalid JSON in payload input: ' + err.message);
+      let rawText = document.getElementById('payload-input').value.trim();
+      if (!rawText) {
+        alert('Please enter or select a scenario JSON payload.');
         return;
       }
+
+      let payload;
+      try {
+        payload = JSON.parse(rawText);
+      } catch (err) {
+        alert('Invalid JSON in payload editor: ' + err.message);
+        return;
+      }
+
+      // Auto-unwrap if user pasted full sample pack with 'cases' or 'input'
+      payload = normalizeScenarioPayload(payload);
+      // Reflect unwrapped JSON back into the textarea so user sees the clean scenario
+      document.getElementById('payload-input').value = JSON.stringify(payload, null, 2);
 
       runBtn.disabled = true;
       loading.style.display = 'flex';
@@ -677,7 +693,8 @@ def get_dashboard_html() -> str:
 
         const data = await res.json();
         if (!res.ok) {
-          throw new Error(data.detail ? JSON.stringify(data.detail) : 'Server error');
+          const detailMsg = data.detail ? (typeof data.detail === 'string' ? data.detail : JSON.stringify(data.detail)) : 'Server error';
+          throw new Error(detailMsg);
         }
 
         respBadge.textContent = '200 OK';
@@ -749,11 +766,22 @@ def get_dashboard_html() -> str:
       }
     }
 
-    // Initialize preset on load
-    window.addEventListener('DOMContentLoaded', () => {
-      loadPreset();
-      // Auto run once
-      runOptimization();
+    // On Page Load: Fetch preloaded canonical sample cases
+    window.addEventListener('DOMContentLoaded', async () => {
+      try {
+        const resp = await fetch('/api/sample-cases');
+        if (resp.ok) {
+          const data = await resp.json();
+          if (data && data.cases && data.cases.length > 0) {
+            populateDropdown(data.cases);
+            // Run initial optimization on the first sample
+            runOptimization();
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Could not load /api/sample-cases:', e);
+      }
     });
   </script>
 </body>

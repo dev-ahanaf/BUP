@@ -4,9 +4,11 @@ import os
 import pytest
 from fastapi.testclient import TestClient
 
+from pathlib import Path
 from app.main import app
 
-SAMPLE_CASES_PATH = "/Users/fayekahanaf/Desktop/My Computer/CISNEXUS/BUP_CSE_FEST_2026_Participant_Docs/BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json"
+LOCAL_SAMPLE_PATH = Path(__file__).resolve().parent.parent.parent / "app" / "data" / "sample_cases.json"
+EXTERNAL_SAMPLE_PATH = Path("/Users/fayekahanaf/Desktop/My Computer/CISNEXUS/BUP_CSE_FEST_2026_Participant_Docs/BUP_CSE_FEST_2026_Preli_Public_Sample_Cases.json")
 
 
 @pytest.fixture
@@ -15,9 +17,10 @@ def client():
 
 
 def load_sample_cases():
-    if not os.path.exists(SAMPLE_CASES_PATH):
-        pytest.skip(f"Sample cases file not found at {SAMPLE_CASES_PATH}")
-    with open(SAMPLE_CASES_PATH, "r", encoding="utf-8") as f:
+    target_path = LOCAL_SAMPLE_PATH if LOCAL_SAMPLE_PATH.exists() else EXTERNAL_SAMPLE_PATH
+    if not target_path.exists():
+        pytest.skip(f"Sample cases file not found at {target_path}")
+    with open(target_path, "r", encoding="utf-8") as f:
         data = json.load(f)
         return data.get("cases", data)
 

@@ -1,7 +1,7 @@
 """FastAPI application entry point for GridWise Energy Optimization Service."""
 import time
 from typing import Any, Dict
-from fastapi import FastAPI, HTTPException, Request, status
+from fastapi import Body, FastAPI, HTTPException, Request, status
 from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import HTMLResponse, JSONResponse
@@ -75,6 +75,23 @@ async def health_check() -> Dict[str, str]:
     return {"status": "ok"}
 
 
+@app.get(
+    "/api/sample-cases",
+    summary="Get public sample test cases",
+    description="Returns preloaded canonical sample scenarios for testing and demonstration.",
+)
+async def get_sample_cases() -> Dict[str, Any]:
+    """Return preloaded sample cases."""
+    import json
+    from pathlib import Path
+
+    sample_path = Path(__file__).resolve().parent / "data" / "sample_cases.json"
+    if sample_path.exists():
+        with open(sample_path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    return {"cases": []}
+
+
 @app.post(
     "/optimize-energy",
     response_model=OptimizationResponse,
@@ -82,9 +99,28 @@ async def health_check() -> Dict[str, str]:
     summary="Optimize 24-hour campus energy dispatch under operator directives",
     description="Interprets natural language operator notes, applies mathematical constraints, solves the MILP dispatch schedule, verifies all physical balances via replay validator, and returns the optimal dispatch plan.",
 )
-async def optimize_energy(request: OptimizationRequest) -> OptimizationResponse:
+async def optimize_energy(payload: Any = Body(...)) -> OptimizationResponse:
     """Optimize energy dispatch endpoint."""
     start_time = time.time()
+
+    # Automatically unwrap sample case packs or wrapped inputs
+    if isinstance(payload, dict):
+        if "input" in payload and isinstance(payload["input"], dict):
+            payload = payload["input"]
+        elif "cases" in payload and isinstance(payload["cases"], list) and len(payload["cases"]) > 0:
+            first_case = payload["cases"][0]
+            payload = first_case.get("input", first_case)
+
+    # Validate against OptimizationRequest Pydantic model
+    try:
+        request = OptimizationRequest.model_validate(payload)
+    except Exception as exc:
+        logger.warning(f"Payload validation failed: {exc}")
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=str(exc),
+        )
+
     logger.info(f"Received optimization request for scenario '{request.scenario_id}' with {len(request.operator_notes)} notes")
 
     # Lazy import to avoid circular dependencies during initialization
